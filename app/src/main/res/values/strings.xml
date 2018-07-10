@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">USSD Check</string>
+    <string name="permission_call_phone"></string>
+    <string name="accessibility_service_description">Accessing accessibility service for FastPay</string>
+</resources>
