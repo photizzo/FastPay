@@ -54,9 +54,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         button_random.setOnClickListener {
             sendSMS("I love you sent programmatically")
-
         }
-
     }
 
     override fun onResume() {
@@ -65,7 +63,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             EventBus.getDefault().register(this)
 
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
-        if (!isPermissionGranted()) {
+        if (!isCallPermissionGranted()) {
             requestPermissions()
         }
     }
@@ -91,7 +89,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val ussd = "$asterisks$code$encodedHash"
         Log.e(TAG, "ussd $ussd")
 
-        if (isPermissionGranted())
+        if (isCallPermissionGranted())
             if (Build.VERSION.SDK_INT > 25) dialCodeOreo(ussd, simSlot)
 
             /*else if (Build.VERSION.SDK_INT > 21) {
@@ -103,24 +101,32 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     Log.e("TAG", "sim subscription id $subscriptionForSlot")
                 }*//*
             }*/
-            else {
+            else if(Build.VERSION.SDK_INT >= 23) {
                 val simSelected = simSlot
                 val telecomManager = this.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-                val phoneAccountHandleList = telecomManager?.callCapablePhoneAccounts
-                val intent = Intent(Intent.ACTION_CALL)
-                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                intent.data = Uri.parse("tel:$ussd")
-                intent.putExtra("com.android.phone.force.slot", true)
-                if (simSelected == 0) {   //0 for sim1
-                    intent.putExtra("com.android.phone.extra.slot", 0) //0 or 1 according to sim.......
-                    if (phoneAccountHandleList != null && phoneAccountHandleList.size > 0)
-                        intent.putExtra("android.telecom.extra.PHONE_ACCOUNT_HANDLE", phoneAccountHandleList.get(0))
-                } else {    //0 for sim1
-                    intent.putExtra("com.android.phone.extra.slot", 1); //0 or 1 according to sim.......
-                    if (phoneAccountHandleList != null && phoneAccountHandleList.size > 1)
-                        intent.putExtra("android.telecom.extra.PHONE_ACCOUNT_HANDLE", phoneAccountHandleList.get(1))
+                if(isCallPermissionGranted()){
+                    val phoneAccountHandleList = telecomManager?.callCapablePhoneAccounts
+                    val intent = Intent(Intent.ACTION_CALL)
+                            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent.data = Uri.parse("tel:$ussd")
+                    intent.putExtra("com.android.phone.force.slot", true)
+                    if (simSelected == 0) {   //0 for sim1
+                        intent.putExtra("com.android.phone.extra.slot", 0) //0 or 1 according to sim.......
+                        if (phoneAccountHandleList != null && phoneAccountHandleList.size > 0)
+                            intent.putExtra("android.telecom.extra.PHONE_ACCOUNT_HANDLE", phoneAccountHandleList.get(0))
+                    } else {    //0 for sim1
+                        intent.putExtra("com.android.phone.extra.slot", 1); //0 or 1 according to sim.......
+                        if (phoneAccountHandleList != null && phoneAccountHandleList.size > 1)
+                            intent.putExtra("android.telecom.extra.PHONE_ACCOUNT_HANDLE", phoneAccountHandleList.get(1))
+                    }
+                    startActivityForResult(intent, 1)
+                } else {
+                    val intent = Intent(Intent.ACTION_CALL)
+                            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent.data = Uri.parse("tel:$ussd")
+                    startActivityForResult(intent, 1)
                 }
-                startActivityForResult(intent, 1)
+
             }
         else requestPermissions()
     }
@@ -147,7 +153,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     }
 
-    private fun isPermissionGranted(): Boolean {
+    private fun isCallPermissionGranted(): Boolean {
         val permissionState = ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.CALL_PHONE)
         return permissionState == PackageManager.PERMISSION_GRANTED
@@ -210,6 +216,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
     }
 
+
     @RequiresApi(26)
     fun requestUssdUsingTelephonyManager(ussd: String, simSlot: Int) {
         Log.e("ussd", "requesting for ussd $ussd")
@@ -236,10 +243,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
         try {
             textview_log.text = "Requesting" + manager.networkOperatorName
-            EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting" + manager.networkOperatorName))
+            //EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting" + manager.networkOperatorName))
             manager.sendUssdRequest(ussd, callback, handler)
             textview_log.text = "Requesting ... ..." + manager.networkOperatorName
-            EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting ... ... " + manager.networkOperatorName))
+            //EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting ... ... " + manager.networkOperatorName))
             //requesting ussd for sim one only
             /*val sims = SubscriptionManager.from(this).activeSubscriptionInfoList
             if (sims == null) {
