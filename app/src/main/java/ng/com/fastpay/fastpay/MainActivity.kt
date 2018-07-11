@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         startService(intent)
 
         if (code.isEmpty()) {
-            textview_log.text = "ussd code is empty"
+            textView_parse_sms.text = ("ussd code is empty")
             return
         }
         val asterisks = code.substring(0, 1)
@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         val code = code.substring(1, code.length - 1)
         val encodedHash = Uri.encode(hash)
         val ussd = "$asterisks$code$encodedHash"
-        Log.e(TAG, "ussd $ussd")
+        Log.e(TAG, "ussd ${ussdToCallableUri(ussd)}")
 
         if (isCallPermissionGranted())
             if (Build.VERSION.SDK_INT > 25) dialCodeOreo(ussd, simSlot)
@@ -123,7 +123,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                 } else {
                     val intent = Intent(Intent.ACTION_CALL)
                             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    intent.data = Uri.parse("tel:$ussd")
+                    intent.data = Uri.parse("${ussdToCallableUri(ussd)}")
                     startActivityForResult(intent, 1)
                 }
 
@@ -181,7 +181,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             showSnackbar(getString(R.string.permission_call_phone), android.R.string.ok, View.OnClickListener {
                 ActivityCompat.requestPermissions(this,
                         arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE
-                                , Manifest.permission.READ_SMS),
+                                , Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS),
                         REQUEST_PERMISSIONS_REQUEST_CODE)
             })
         } else {
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             // previously and checked "Never ask again".
             ActivityCompat.requestPermissions(this,
                     arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE
-                            , Manifest.permission.READ_SMS),
+                            , Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS),
                     REQUEST_PERMISSIONS_REQUEST_CODE)
         }
     }
@@ -219,22 +219,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     @RequiresApi(26)
     fun requestUssdUsingTelephonyManager(ussd: String, simSlot: Int) {
-        Log.e("ussd", "requesting for ussd $ussd")
+        Log.e("ussd", "requesting for ussd ${ussdToCallableUri(ussd)}")
         val manager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         val handler = Handler()
         val callback = object : TelephonyManager.UssdResponseCallback() {
             override fun onReceiveUssdResponse(telephonyManager: TelephonyManager, request: String, response: CharSequence) {
                 super.onReceiveUssdResponse(telephonyManager, request, response) // what if i remove this line
                 EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, response.toString()))
-                textview_log.text = "Success with response : $response \n request $request"
-                Log.e("ussd", "Success with response : $response \n request $request")
+                textview_log.text = ("Response: \nSuccess with response : $response \n request : $request")
+                Log.e("ussd", "Success with response : $response \n request : $request")
             }
 
             override fun onReceiveUssdResponseFailed(telephonyManager: TelephonyManager, request: String, failureCode: Int) {
                 super.onReceiveUssdResponseFailed(telephonyManager, request, failureCode) // what if i remove this line
                 EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Failed with code $failureCode"))
-                textview_log.text = "failed with code " + Integer.toString(failureCode) + "\n request " + request
-                Log.e("ussd", "failed with code " + Integer.toString(failureCode) + "\n request " + request)
+                textview_log.text = ("Response: \nfailed with code $failureCode  \n request : $request")
+                Log.e("ussd", "failed with code $failureCode \n request : $request")
             }
 
         }
@@ -242,10 +242,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Starting ... "))
 
         try {
-            textview_log.text = "Requesting" + manager.networkOperatorName
+            textview_log.text = ("Requesting" + manager.networkOperatorName)
             //EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting" + manager.networkOperatorName))
-            manager.sendUssdRequest(ussd, callback, handler)
-            textview_log.text = "Requesting ... ..." + manager.networkOperatorName
+            manager.sendUssdRequest(ussdToCallableUri(ussd).toString(), callback, handler)
+            textview_log.text = ("Requesting ... ..." + manager.networkOperatorName)
             //EventBus.getDefault().post(IntentResult(Activity.RESULT_OK, "Requesting ... ... " + manager.networkOperatorName))
             //requesting ussd for sim one only
             /*val sims = SubscriptionManager.from(this).activeSubscriptionInfoList
@@ -298,8 +298,22 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     }
 
+    private fun ussdToCallableUri(ussd: String): Uri {
+
+        var uriString = ""
+
+        if (!ussd.startsWith("tel:"))
+            uriString += "tel:"
+
+        if(ussd.contains("%23")) {
+            uriString = ussd.replace("%23", Uri.decode("#"))
+        }
+
+        return Uri.parse(uriString)
+    }
+
     fun sendSMS(message: String) {
-        SmsManager.getDefault().sendTextMessage("08141549102", null, message, null, null)
+        SmsManager.getDefault().sendTextMessage("+2348141549102", null, message, null, null)
 
     }
 
@@ -309,7 +323,7 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             if (resultData == null) {
                 return
             } else {
-
+                Log.e("ussd", "Status: $status with result, $resultData")
             }
 
         }
